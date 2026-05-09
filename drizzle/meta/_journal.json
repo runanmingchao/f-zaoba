@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1778258533331,
+      "tag": "0000_good_betty_brant",
+      "breakpoints": true
+    }
+  ]
+}

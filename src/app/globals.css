@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+:root {
+  --bg: #faf9f7;
+  --bg-card: #ffffff;
+  --bg-sidebar: #f5f0e8;
+  --text: #1a1a1a;
+  --text-muted: #6b6b6b;
+  --border: #e0d8cc;
+  --accent: #b8860b;
+  --accent-light: #f0e6d3;
+  --bubble-user: #f0e6d3;
+  --bubble-assistant: #ffffff;
+  --font-body: "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-heading: "Noto Serif SC", serif;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1a1a;
+  --bg-card: #252525;
+  --bg-sidebar: #1e1e1e;
+  --text: #e0d8cc;
+  --text-muted: #999;
+  --border: #3a3a3a;
+  --accent: #d4a017;
+  --accent-light: #3a3020;
+  --bubble-user: #3a3020;
+  --bubble-assistant: #252525;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Markdown content styling */
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  color: var(--accent);
+  font-family: var(--font-heading);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-content p {
+  margin: 0.5em 0;
+  line-height: 1.8;
+}
+
+.markdown-content em {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.markdown-content strong {
+  color: var(--accent);
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--text-muted);
+  margin: 0.5em 0;
+}
+
+.markdown-content ul, .markdown-content ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.markdown-content li {
+  margin: 0.25em 0;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
