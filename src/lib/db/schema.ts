@@ -27,11 +27,22 @@ export const worlds = sqliteTable("worlds", {
   userId: text("user_id").notNull().references(() => users.id),
   narrativeMd: text("narrative_md").notNull(),
   name: text("name").notNull(),
+  theme: text("theme").notNull().default("default"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 }, (table) => ({
   userIdIdx: index("worlds_user_id_idx").on(table.userId),
 }));
+
+export const userPreferences = sqliteTable("user_preferences", {
+  userId: text("user_id").primaryKey().references(() => users.id),
+  preferredStyle: text("preferred_style").notNull().default("default"),
+  preferredTheme: text("preferred_theme").notNull().default("light"),
+  styleOverride: text("style_override"),
+  fontFamily: text("font_family"),
+  fontSize: text("font_size").notNull().default("medium"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
 
 export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
@@ -66,6 +77,10 @@ export const textbooks = sqliteTable("textbooks", {
   parsedContent: text("parsed_content"),
   blobUrl: text("blob_url"),
   chapterCount: integer("chapter_count").default(0),
+  parseStatus: text("parse_status").default("idle"),
+  parseProgress: integer("parse_progress").default(0),
+  parseError: text("parse_error"),
+  lastParseAt: integer("last_parse_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 

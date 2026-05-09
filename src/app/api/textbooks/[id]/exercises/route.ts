@@ -60,6 +60,33 @@ export async function POST(
   return NextResponse.json(created, { status: 201 });
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: textbookId } = await params;
+
+  const { exerciseId, answer } = await req.json();
+  if (!exerciseId) return NextResponse.json({ error: "exerciseId required" }, { status: 400 });
+
+  const ex = db.select().from(exercises)
+    .where(and(
+      eq(exercises.id, exerciseId),
+      eq(exercises.textbookId, textbookId),
+      eq(exercises.userId, session.userId)
+    ))
+    .all()[0];
+  if (!ex) return NextResponse.json({ error: "Exercise not found" }, { status: 404 });
+
+  db.update(exercises).set({ answer: answer || "" }).where(eq(exercises.id, exerciseId)).run();
+
+  const updated = db.select().from(exercises).where(eq(exercises.id, exerciseId)).all()[0];
+  return NextResponse.json(updated);
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -21,6 +21,38 @@ interface SavedKey {
   hasKey: boolean;
 }
 
+type StyleTheme = "default" | "cyberpunk" | "cool" | "minimal" | "anime" | "nature";
+type ColorTheme = "light" | "dark";
+type FontSize = "small" | "medium" | "large" | "xlarge";
+
+const STYLE_OPTIONS: { value: StyleTheme; label: string; desc: string }[] = [
+  { value: "default", label: "🏛️ 经典", desc: "金色学院风" },
+  { value: "cyberpunk", label: "🌃 科幻", desc: "赛博霓虹风" },
+  { value: "cool", label: "🔥 酷炫", desc: "潮流炫酷风" },
+  { value: "minimal", label: "⬜ 简约", desc: "极简主义" },
+  { value: "anime", label: "🌸 二次元", desc: "可爱萌系风" },
+  { value: "nature", label: "🌿 自然", desc: "绿意盎然风" },
+];
+
+const FONT_OPTIONS = [
+  { value: "", label: "默认字体" },
+  { value: "Noto Serif SC, serif", label: "思源宋体" },
+  { value: "Noto Sans SC, sans-serif", label: "思源黑体" },
+  { value: "KaiTi, serif", label: "楷体" },
+  { value: "SimSun, serif", label: "宋体" },
+  { value: "Microsoft YaHei, sans-serif", label: "微软雅黑" },
+  { value: "Inter, sans-serif", label: "Inter" },
+  { value: "Georgia, serif", label: "Georgia" },
+  { value: "Comic Neue, cursive", label: "Comic Neue" },
+];
+
+const FONT_SIZE_OPTIONS: { value: FontSize; label: string }[] = [
+  { value: "small", label: "小" },
+  { value: "medium", label: "中" },
+  { value: "large", label: "大" },
+  { value: "xlarge", label: "特大" },
+];
+
 export default function SettingsPage() {
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
@@ -38,6 +70,78 @@ export default function SettingsPage() {
     if (typeof window !== "undefined") return localStorage.getItem("socratopia_active_provider");
     return null;
   });
+
+  // Theme preferences
+  const [colorTheme, setColorTheme] = useState<ColorTheme>("light");
+  const [styleOverride, setStyleOverride] = useState<StyleTheme | null>(null);
+  const [themeMode, setThemeMode] = useState<"world" | "override">("world");
+
+  // Font preferences
+  const [fontFamily, setFontFamily] = useState("");
+  const [fontSize, setFontSize] = useState<FontSize>("medium");
+
+  useEffect(() => {
+    // Load theme preferences
+    fetch("/api/preferences")
+      .then(r => r.json())
+      .then(pref => {
+        if (pref.preferredTheme === "dark" || pref.preferredTheme === "light") {
+          setColorTheme(pref.preferredTheme);
+        }
+        if (pref.styleOverride) {
+          setStyleOverride(pref.styleOverride as StyleTheme);
+          setThemeMode("override");
+        }
+        // Load font preferences
+        if (pref.fontFamily) setFontFamily(pref.fontFamily);
+        if (pref.fontSize) setFontSize(pref.fontSize as FontSize);
+      })
+      .catch(() => {});
+  }, []);
+
+  function handleColorThemeChange(theme: ColorTheme) {
+    setColorTheme(theme);
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("socratopia_color_theme", theme);
+    fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preferredTheme: theme }),
+    }).catch(() => {});
+  }
+
+  function handleStyleOverrideChange(style: StyleTheme | null) {
+    setStyleOverride(style);
+    setThemeMode(style ? "override" : "world");
+    document.documentElement.setAttribute("data-style", style || "default");
+    fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ styleOverride: style }),
+    }).catch(() => {});
+  }
+
+  function handleFontFamilyChange(font: string) {
+    setFontFamily(font);
+    const newFont = font || "Noto Serif SC, serif";
+    document.documentElement.style.setProperty("--font-body", newFont);
+    document.documentElement.style.setProperty("--font-heading", newFont);
+    fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fontFamily: font }),
+    }).catch(() => {});
+  }
+
+  function handleFontSizeChange(size: FontSize) {
+    setFontSize(size);
+    document.documentElement.setAttribute("data-font-size", size);
+    fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fontSize: size }),
+    }).catch(() => {});
+  }
 
   const [customProvider, setCustomProvider] = useState("");
   const [customKey, setCustomKey] = useState("");
@@ -90,9 +194,6 @@ export default function SettingsPage() {
         });
         setMessage(`${provider} Key 已保存`);
         setTimeout(() => { setSaved(prev => ({ ...prev, [provider]: false })); setMessage(""); }, 2000);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "保存失败，请重试");
       }
     } catch {
       toast.error("保存失败，请重试");
@@ -122,9 +223,6 @@ export default function SettingsPage() {
         setCustomBaseUrl("");
         setCustomModel("");
         setTimeout(() => setMessage(""), 2000);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "保存失败，请重试");
       }
     } catch {
       toast.error("保存失败，请重试");
@@ -139,6 +237,194 @@ export default function SettingsPage() {
       <h1 style={{ fontFamily: "var(--font-heading)", color: "var(--accent)", fontSize: "1.3rem", marginBottom: "2rem" }}>
         ⚙️ 设置
       </h1>
+
+      {/* Theme Preferences Section */}
+      <section style={{ marginBottom: "2.5rem" }}>
+        <h2 style={{ fontSize: "1rem", color: "var(--text)", marginBottom: "1rem" }}>
+          外观与主题
+        </h2>
+
+        {/* Color Theme Toggle */}
+        <div style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: "10px",
+          padding: "1rem",
+          marginBottom: "1rem",
+        }}>
+          <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.75rem" }}>
+            配色方案
+          </label>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={() => handleColorThemeChange("light")}
+              style={{
+                flex: 1,
+                padding: "0.6rem 1rem",
+                background: colorTheme === "light" ? "var(--accent)" : "var(--bg)",
+                color: colorTheme === "light" ? "#fff" : "var(--text)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: colorTheme === "light" ? 600 : 400,
+              }}
+            >
+              ☀️ 浅色
+            </button>
+            <button
+              onClick={() => handleColorThemeChange("dark")}
+              style={{
+                flex: 1,
+                padding: "0.6rem 1rem",
+                background: colorTheme === "dark" ? "var(--accent)" : "var(--bg)",
+                color: colorTheme === "dark" ? "#fff" : "var(--text)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: colorTheme === "dark" ? 600 : 400,
+              }}
+            >
+              🌙 深色
+            </button>
+          </div>
+        </div>
+
+        {/* Style Override Toggle */}
+        <div style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: "10px",
+          padding: "1rem",
+        }}>
+          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.75rem" }}>
+            <span>UI 风格</span>
+            <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "var(--text-muted)" }}>
+              {themeMode === "override" ? "手动覆盖" : "跟随世界"}
+            </span>
+          </label>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            {STYLE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => handleStyleOverrideChange(styleOverride === opt.value ? null : opt.value)}
+                style={{
+                  padding: "0.6rem 0.5rem",
+                  background: (styleOverride || themeMode === "world") && styleOverride !== opt.value ? "var(--bg)" :
+                             (styleOverride === opt.value || (styleOverride === null && themeMode === "world" && opt.value === "default"))
+                             ? "var(--accent)" : "var(--bg)",
+                  color: (styleOverride === opt.value || (styleOverride === null && themeMode === "world" && opt.value === "default"))
+                         ? "#fff" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                }}
+              >
+                {opt.label.split(" ")[0]} {opt.label.split(" ")[1]}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button
+              onClick={() => handleStyleOverrideChange(null)}
+              style={{
+                flex: 1,
+                padding: "0.4rem 0.75rem",
+                background: themeMode === "world" ? "var(--accent-light)" : "transparent",
+                color: themeMode === "world" ? "var(--accent)" : "var(--text-muted)",
+                border: `1px solid ${themeMode === "world" ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
+            >
+              🌍 跟随世界主题
+            </button>
+            <button
+              onClick={() => handleStyleOverrideChange(styleOverride || "default")}
+              style={{
+                flex: 1,
+                padding: "0.4rem 0.75rem",
+                background: themeMode === "override" ? "var(--accent-light)" : "transparent",
+                color: themeMode === "override" ? "var(--accent)" : "var(--text-muted)",
+                border: `1px solid ${themeMode === "override" ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
+            >
+              ✨ 手动选择风格
+            </button>
+          </div>
+        </div>
+
+        {/* Font Preferences */}
+        <div style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: "10px",
+          padding: "1rem",
+          marginTop: "1rem",
+        }}>
+          <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.75rem" }}>
+            字体与大小
+          </label>
+
+          <div style={{ marginBottom: "0.75rem" }}>
+            <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.35rem" }}>
+              字体
+            </label>
+            <select
+              value={fontFamily}
+              onChange={e => handleFontFamilyChange(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                color: "var(--text)",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+              }}
+            >
+              {FONT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.35rem" }}>
+              字大小
+            </label>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              {FONT_SIZE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleFontSizeChange(opt.value)}
+                  style={{
+                    flex: 1,
+                    padding: "0.4rem 0.5rem",
+                    background: fontSize === opt.value ? "var(--accent)" : "var(--bg)",
+                    color: fontSize === opt.value ? "#fff" : "var(--text)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section style={{ marginBottom: "2rem" }}>
         <h2 style={{ fontSize: "1rem", color: "var(--text)", marginBottom: "1rem" }}>

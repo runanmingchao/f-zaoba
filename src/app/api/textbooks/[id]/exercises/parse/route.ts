@@ -8,6 +8,25 @@ import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { stripThinking } from "@/lib/utils/strip-thinking";
 
+// 新增：检查题目答案偏差
+function checkAnswerDeviation(question: string, answer: string): { isDeviated: boolean; reason?: string } {
+  if (!answer || answer.trim() === "") {
+    return { isDeviated: false }; // 空答案不算偏差
+  }
+  // 宽松模式：只检查明显不相关
+  const qLength = question.length;
+  const aLength = answer.length;
+  // 答案长度是题目的3倍以上可能有问题
+  if (aLength > qLength * 3) {
+    return { isDeviated: true, reason: "答案长度明显超出题目范围" };
+  }
+  // 答案太短（少于5个字）可能是无效答案
+  if (aLength < 5 && aLength > 0) {
+    return { isDeviated: true, reason: "答案过于简短" };
+  }
+  return { isDeviated: false };
+}
+
 const DUAL_PARSE_PROMPT = `你是一位专业的教学习题解析助手。用户同时上传了习题文档和答案文档，请对照两份文档，将题目和答案一一配对，输出结构化的习题列表。
 
 ## 教材信息
@@ -113,6 +132,17 @@ export async function POST(
     baseUrl: keyEntry.baseUrl || undefined,
   };
 
+  // Update status to parsing
+  db.update(textbooks)
+    .set({
+      parseStatus: "parsing",
+      parseProgress: 0,
+      parseError: null,
+      lastParseAt: new Date(),
+    })
+    .where(and(eq(textbooks.id, textbookId), eq(textbooks.userId, session.userId)))
+    .run();
+
   // Build chapter info from textbook headings
   let chapterInfo = "未提供章节结构";
   if (tb.parsedContent) {
@@ -176,6 +206,7 @@ export async function POST(
 
     // Insert all parsed exercises
     const inserted: { id: string; question: string; answer: string; topic: string | null }[] = [];
+    const deviatedWarnings: { question: string; reason: string }[] = [];
     for (const item of parsed) {
       if (!item.question) continue;
       const id = nanoid();
@@ -189,14 +220,41 @@ export async function POST(
       }).run();
       const created = db.select().from(exercises).where(eq(exercises.id, id)).all()[0];
       if (created) inserted.push(created);
+
+      // 检查答案偏差
+      if (item.answer) {
+        const check = checkAnswerDeviation(item.question, item.answer);
+        if (check.isDeviated) {
+          deviatedWarnings.push({ question: item.question.slice(0, 50) + "...", reason: check.reason || "答案可能有偏差" });
+        }
+      }
     }
+
+    // Update status to completed
+    db.update(textbooks)
+      .set({
+        parseStatus: "completed",
+        parseProgress: 100,
+      })
+      .where(and(eq(textbooks.id, textbookId), eq(textbooks.userId, session.userId)))
+      .run();
 
     return NextResponse.json({
       inserted: inserted.length,
       exercises: inserted,
       dual: isDual,
+      deviatedWarnings: deviatedWarnings.length > 0 ? deviatedWarnings : undefined,
     }, { status: 201 });
   } catch (err: unknown) {
+    // Update status to failed
+    db.update(textbooks)
+      .set({
+        parseStatus: "failed",
+        parseError: String(err),
+      })
+      .where(and(eq(textbooks.id, textbookId), eq(textbooks.userId, session.userId)))
+      .run();
+
     if (err instanceof SyntaxError) {
       return NextResponse.json({
         error: "AI 返回内容无法解析为 JSON，请尝试重新解析或手动添加",
